@@ -5,7 +5,7 @@
 # 1. One-step evaluation：四模型真實 MAE / Accuracy
 # 2. Multi-step rollout：v2 MLP vs v2 LSTM 真實 rollout
 # 3. True Prediction Playground：從 sequence sample 跑真實 .pt inference
-# 4. Real SHAP XAI：讀取離線 SHAP 結果，支援 MLP/LSTM v1/v2
+# 4. Real SHAP XAI：讀取離線 SHAP 結果，支援 MLP/LSTM Baseline/Temporal
 #
 # 執行：
 #   streamlit run app.py
@@ -919,9 +919,9 @@ if page == "1. Project Overview":
     with c1:
         metric_card("World Model Task", "sₜ + aₜ → sₜ₊₁", "根據目前交通狀態與控制動作預測下一步")
     with c2:
-        metric_card("Models", "4", "MLP / LSTM × v1 / v2")
+        metric_card("Models", "4", "MLP / LSTM × Baseline / Temporal")
     with c3:
-        metric_card("Evaluation", "MAE / Acc", "不顯示 RMSE")
+        metric_card("Evaluation", "MAE / Acc")
     with c4:
         metric_card("XAI", "Offline SHAP", "MLP/LSTM 皆支援")
 
@@ -937,12 +937,12 @@ if page == "1. Project Overview":
     st.markdown("### 模型命名與角色")
     model_df = pd.DataFrame(
         [
-            ["MLP v1", "MLP – Static World Model", "基礎 MLP，作為 static baseline 與 XAI baseline"],
-            ["LSTM v1", "LSTM – Sequential World Model", "基礎 LSTM，用於觀察序列記憶效果"],
-            ["MLP v2", "MLP – Temporal World Model", "新版 MLP，使用 temporal enhanced data"],
-            ["LSTM v2", "LSTM – Enhanced Sequential World Model", "新版 LSTM，用於 long-horizon rollout 穩定性分析"],
+            [ "MLP (Baseline)", "作為 static baseline"],
+            [ "LSTM (Baseline)", "用於觀察序列記憶效果"],
+            ["MLP (Temporal)", "使用 temporal data"],
+            [ "LSTM (Temporal)", "使用 temporal data"],
         ],
-        columns=["原始名稱", "展示名稱", "說明"],
+        columns=[ "模型名稱", "說明"],
     )
     st.dataframe(model_df, use_container_width=True, hide_index=True)
 
@@ -960,12 +960,12 @@ if page == "1. Project Overview":
 
 
 elif page == "2. Dataset Design":
-    st.markdown('<div class="section-title">v1 / v2 Dataset Feature Design</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Baseline / Temporal Dataset Feature Design</div>', unsafe_allow_html=True)
 
     info_box(
         """
-        <b>v1</b> 是 static / baseline dataset，主要用於單一步交通狀態轉移預測。<br>
-        <b>v2</b> 加入 temporal context，例如 sequence_id、episode、step，
+        <b>Baseline</b> 是 static / baseline dataset，主要用於單一步交通狀態轉移預測。<br>
+        <b>Temporal</b> 加入 temporal context，例如 sequence_id、episode、step，
         使資料更適合 sequence-aware rollout 與 long-horizon prediction。
         """,
         "green",
@@ -973,10 +973,10 @@ elif page == "2. Dataset Design":
 
     feature_df = pd.DataFrame(
         [
-            ["Metadata", "vehicle_type, source_policy", "v1 / v2 共用"],
+            ["Metadata", "vehicle_type, source_policy", "Baseline / Temporal 共用"],
             ["Current State", "speed_t, acceleration_t, dist_tls_t, tls_color_t, leader_gap_t, leader_speed_t, waiting_time_t, time_loss_t, is_stopped_t", "v1 / v2 共用"],
-            ["Action / Control", "action, target_speed", "v1 / v2 共用"],
-            ["Learning Signal", "reward, done", "v1 / v2 共用"],
+            ["Action / Control", "action, target_speed", "Baseline / Temporal 共用"],
+            ["Learning Signal", "reward, done", "Baseline / Temporal 共用"],
             ["Prediction Targets", "speed_next, acceleration_next, dist_tls_next, tls_color_next, leader_gap_next, leader_speed_next, waiting_time_next, time_loss_next, is_stopped_next, reward, done", "v1 / v2 共用"],
             ["Temporal Index", "sequence_id, episode, step", "v2 新增"],
         ],
@@ -989,7 +989,7 @@ elif page == "2. Dataset Design":
     with col1:
         info_box(
             """
-            <b>v1 Static / Baseline</b><br>
+            <b>Baseline</b><br>
             - 著重單一步 state transition<br>
             - 適合作為 baseline 與 SHAP 參考<br>
             - 較難表達長期 temporal dependency
@@ -999,7 +999,7 @@ elif page == "2. Dataset Design":
     with col2:
         info_box(
             """
-            <b>v2 Temporal / Enhanced</b><br>
+            <b>Temporal</b><br>
             - 保留 sequence 與 episode 資訊<br>
             - 更適合 multi-step rollout<br>
             - 可觀察 temporal context 是否改變 feature reliance
@@ -1014,7 +1014,7 @@ elif page == "3. One-step Evaluation":
     info_box(
         """
         此頁只顯示正式 evaluation log。連續變數使用 <b>MAE</b>，
-        狀態 / 分類變數使用 <b>Accuracy</b>。不顯示 RMSE。
+        狀態 / 分類變數使用 <b>Accuracy</b>。
         """,
         "blue",
     )
@@ -1039,9 +1039,9 @@ elif page == "3. One-step Evaluation":
     info_box(
         """
         <b>觀察：</b><br>
-        MLP v2 在 speed、acceleration、dist_tls、leader_speed、time_loss、reward 等多數連續變數上表現較佳；
-        LSTM v2 在 tls_color 與 waiting_time 上表現突出；
-        LSTM v1 在 leader_gap 與 is_stopped accuracy 上具有優勢。
+        MLP (Temporal) 在 speed、acceleration、dist_tls、leader_speed、time_loss、reward 等多數連續變數上表現較佳；
+        LSTM (Temporal) 在 tls_color 與 waiting_time 上表現突出；
+        LSTM (Baseline) 在 leader_gap 與 is_stopped accuracy 上具有優勢。
         """,
         "green",
     )
@@ -1052,7 +1052,7 @@ elif page == "4. Multi-step Rollout":
 
     info_box(
         """
-        此頁只使用 MLP v2 與 LSTM v2 multi-step rollout 真實數據。
+        此頁只使用 MLP (Temporal) 與 LSTM (Temporal) multi-step rollout 真實數據。
         研究重點是新版 temporal model 的 long-horizon stability。
         """,
         "blue",
@@ -1508,8 +1508,8 @@ elif page == "7. Research Findings":
             本研究將智慧交通車速控制問題轉換為 world model prediction task，
             也就是根據目前交通狀態與控制動作預測下一步交通狀態。
 
-            我比較了四個模型：MLP v1、LSTM v1、MLP v2 與 LSTM v2。
-            v1 是 static baseline dataset，而 v2 加入 temporal context，
+            我比較了四個模型：MLP (Baseline)、LSTM (Baseline)、MLP (Temporal) 與 LSTM (Temporal)。
+            Baseline 是 static baseline dataset，而 Temporal 加入 temporal context，
             讓資料保留 sequence 與 episode 資訊。
 
             在 one-step evaluation 中，MLP v2 在多數連續變數上有較低 MAE，
