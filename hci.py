@@ -1044,10 +1044,9 @@ elif page == "5. World Model Evidence":
     st.dataframe(ONE_STEP_DATA, use_container_width=True, hide_index=True)
     st.markdown("### Multi-step Rollout Evidence")
     st.dataframe(ROLLOUT_SUMMARY, use_container_width=True, hide_index=True)
-    st.pyplot(plot_rollout(), use_container_width=True)
     info_box(
         """
-        <b>可放入報告的重點：</b><br>
+        <b>報告重點：</b><br>
         - MLP (Temporal) 在 one-step prediction 上表現較佳。<br>
         - LSTM (Temporal) 在 long-horizon rollout 上較穩定。<br>
         - 因此 HCI 平台中特別設計「長期預測不穩定」情境，觀察 explanation 是否能幫助使用者避免過度信任。
@@ -1056,7 +1055,7 @@ elif page == "5. World Model Evidence":
     )
 
 elif page == "6. Report Text":
-    st.markdown("## 可直接放進 HCI 期末報告的文字")
+    st.markdown("## HCI 期末報告")
     st.markdown("### 題目")
     st.code("以可解釋 World Model 介面提升智慧交通 AI 決策理解與信任之 HCI 研究", language="text")
 
