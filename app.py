@@ -189,11 +189,13 @@ st.markdown(
 # ============================================================
 
 MODEL_NAMES = {
-    "MLP v1": "MLP – Static World Model",
-    "LSTM v1": "LSTM – Sequential World Model",
-    "MLP v2": "MLP – Temporal World Model",
-    "LSTM v2": "LSTM – Enhanced Sequential World Model",
+    "MLP v1": "MLP (Baseline)",
+    "LSTM v1": "LSTM (Baseline)",
+    "MLP v2": "MLP (Temporal)",
+    "LSTM v2": "LSTM (Temporal)",
 }
+
+MODEL_DISPLAY_COLS = MODEL_NAMES.copy()
 
 SHAP_PREFIX = {
     "MLP v1": "mlp_v1",
@@ -464,6 +466,18 @@ def safe_format_df(df, digits=4):
     return df.style.format({c: f"{{:.{digits}f}}" for c in numeric_cols})
 
 
+def display_model_name(model_key: str):
+    return MODEL_NAMES.get(model_key, model_key)
+
+
+def display_model_columns(df: pd.DataFrame):
+    display_df = df.copy()
+    display_df = display_df.rename(columns=MODEL_DISPLAY_COLS)
+    if "Best Model" in display_df.columns:
+        display_df["Best Model"] = display_df["Best Model"].map(lambda x: MODEL_NAMES.get(x, x))
+    return display_df
+
+
 def find_existing_file(filename: str):
     for d in SEARCH_DIRS:
         p = d / filename
@@ -493,10 +507,11 @@ def plot_barh(df, feature_col, value_col, title, xlabel="Mean |SHAP value|", top
 def plot_one_step_target(target):
     row = ONE_STEP_DATA[ONE_STEP_DATA["Target"] == target].iloc[0]
     models = ["MLP v1", "LSTM v1", "MLP v2", "LSTM v2"]
+    display_labels = [display_model_name(m) for m in models]
     values = [row[m] for m in models]
 
     fig, ax = plt.subplots(figsize=(8, 4.5))
-    ax.bar(models, values)
+    ax.bar(display_labels, values)
     ax.set_title(f"{target} ({row['Metric']})", fontsize=15, fontweight="bold")
     ax.set_ylabel(row["Metric"])
     ax.grid(axis="y", alpha=0.25)
@@ -510,8 +525,8 @@ def plot_one_step_target(target):
 
 def plot_rollout(metric_col, title, ylabel="MAE / Accuracy"):
     fig, ax = plt.subplots(figsize=(8, 4.8))
-    ax.plot(MLP_V2_ROLLOUT["Horizon"], MLP_V2_ROLLOUT[metric_col], marker="o", linewidth=2, label="MLP v2")
-    ax.plot(LSTM_V2_ROLLOUT["Horizon"], LSTM_V2_ROLLOUT[metric_col], marker="o", linewidth=2, label="LSTM v2")
+    ax.plot(MLP_V2_ROLLOUT["Horizon"], MLP_V2_ROLLOUT[metric_col], marker="o", linewidth=2, label="MLP (Temporal)")
+    ax.plot(LSTM_V2_ROLLOUT["Horizon"], LSTM_V2_ROLLOUT[metric_col], marker="o", linewidth=2, label="LSTM (Temporal)")
     ax.set_title(title, fontsize=15, fontweight="bold")
     ax.set_xlabel("Rollout Horizon")
     ax.set_ylabel(ylabel)
@@ -901,7 +916,7 @@ with st.sidebar:
         format_func=lambda x: MODEL_NAMES[x],
     )
 
-    st.caption("v1 = Static / Baseline；v2 = Temporal / Enhanced")
+    st.caption("Baseline = Static dataset；Temporal = Sequence / episode context")
     st.caption("SHAP 為離線真實結果，不在 app 即時計算。")
 
 
@@ -1020,11 +1035,11 @@ elif page == "3. One-step Evaluation":
     )
 
     st.markdown("### Complete Evaluation Table")
-    st.dataframe(safe_format_df(ONE_STEP_DATA), use_container_width=True, hide_index=True)
+    st.dataframe(safe_format_df(display_model_columns(ONE_STEP_DATA)), use_container_width=True, hide_index=True)
 
     st.markdown("### Best Model by Target")
     best_df = best_model_summary()
-    st.dataframe(safe_format_df(best_df), use_container_width=True, hide_index=True)
+    st.dataframe(safe_format_df(display_model_columns(best_df)), use_container_width=True, hide_index=True)
 
     st.markdown("### Target Visualization")
     selected_targets = st.multiselect(
@@ -1048,7 +1063,7 @@ elif page == "3. One-step Evaluation":
 
 
 elif page == "4. Multi-step Rollout":
-    st.markdown('<div class="section-title">Multi-step Rollout： MLP (Temporal) vs LSTM (Temporal)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Multi-step Rollout：MLP (Temporal) vs LSTM (Temporal)</div>', unsafe_allow_html=True)
 
     info_box(
         """
@@ -1062,29 +1077,29 @@ elif page == "4. Multi-step Rollout":
     with c1:
         metric_card("Rollout Horizons", "10 / 20 / 50", "短期、中期、長期預測")
     with c2:
-        metric_card("MLP(Temoiral) 50-step speed MAE", f"{MLP_V2_ROLLOUT.loc[2, 'speed_next_mae']:.4f}", "長期 rollout 明顯發散")
+        metric_card("MLP (Temporal) 50-step speed MAE", f"{MLP_V2_ROLLOUT.loc[2, 'speed_next_mae']:.4f}", "長期 rollout 明顯發散")
     with c3:
-        metric_card("LSTM(Temoiral) 50-step speed MAE", f"{LSTM_V2_ROLLOUT.loc[2, 'speed_next_mae']:.4f}", "長期穩定性較佳")
+        metric_card("LSTM (Temporal) 50-step speed MAE", f"{LSTM_V2_ROLLOUT.loc[2, 'speed_next_mae']:.4f}", "長期穩定性較佳")
 
     compare_df = pd.DataFrame({
         "Horizon": MLP_V2_ROLLOUT["Horizon"],
-        "MLP speed MAE": MLP_V2_ROLLOUT["speed_next_mae"],
-        "LSTM speed MAE": LSTM_V2_ROLLOUT["speed_next_mae"],
-        "MLP dist_tls MAE": MLP_V2_ROLLOUT["dist_tls_next_mae"],
-        "LSTM dist_tls MAE": LSTM_V2_ROLLOUT["dist_tls_next_mae"],
-        "MLP time_loss MAE": MLP_V2_ROLLOUT["time_loss_next_mae"],
-        "LSTM time_loss MAE": LSTM_V2_ROLLOUT["time_loss_next_mae"],
-        "MLP reward MAE": MLP_V2_ROLLOUT["reward_mae"],
-        "LSTM reward MAE": LSTM_V2_ROLLOUT["reward_mae"],
+        "MLP (Temporal) speed MAE": MLP_V2_ROLLOUT["speed_next_mae"],
+        "LSTM (Temporal) speed MAE": LSTM_V2_ROLLOUT["speed_next_mae"],
+        "MLP (Temporal) dist_tls MAE": MLP_V2_ROLLOUT["dist_tls_next_mae"],
+        "LSTM (Temporal) dist_tls MAE": LSTM_V2_ROLLOUT["dist_tls_next_mae"],
+        "MLP (Temporal) time_loss MAE": MLP_V2_ROLLOUT["time_loss_next_mae"],
+        "LSTM (Temporal) time_loss MAE": LSTM_V2_ROLLOUT["time_loss_next_mae"],
+        "MLP (Temporal) reward MAE": MLP_V2_ROLLOUT["reward_mae"],
+        "LSTM (Temporal) reward MAE": LSTM_V2_ROLLOUT["reward_mae"],
     })
 
     st.markdown("### Rollout Summary")
     st.dataframe(safe_format_df(compare_df), use_container_width=True, hide_index=True)
 
-    with st.expander("查看完整 MLP v2 rollout 指標"):
+    with st.expander("查看完整 MLP (Temporal) rollout 指標"):
         st.dataframe(safe_format_df(MLP_V2_ROLLOUT), use_container_width=True, hide_index=True)
 
-    with st.expander("查看完整 LSTM v2 rollout 指標"):
+    with st.expander("查看完整 LSTM (Temporal) rollout 指標"):
         st.dataframe(safe_format_df(LSTM_V2_ROLLOUT), use_container_width=True, hide_index=True)
 
     col1, col2 = st.columns(2)
@@ -1222,7 +1237,7 @@ elif page == "6. Real SHAP XAI":
                         global_df,
                         "feature",
                         value_col,
-                        f"{shap_model} Global SHAP Importance - All Targets",
+                        f"{display_model_name(shap_model)} Global SHAP Importance - All Targets",
                     ),
                     use_container_width=True,
                 )
@@ -1262,7 +1277,7 @@ elif page == "6. Real SHAP XAI":
 
             c1, c2, c3 = st.columns(3)
             with c1:
-                metric_card("Model", shap_model, MODEL_NAMES[shap_model])
+                metric_card("Model", display_model_name(shap_model), MODEL_NAMES[shap_model])
             with c2:
                 metric_card("Target", target, TARGET_LABELS.get(target, ""))
             with c3:
@@ -1275,7 +1290,7 @@ elif page == "6. Real SHAP XAI":
                         target_df,
                         "feature",
                         value_col,
-                        f"{shap_model} SHAP Importance - {target}",
+                        f"{display_model_name(shap_model)} SHAP Importance - {target}",
                     ),
                     use_container_width=True,
                 )
@@ -1329,19 +1344,19 @@ elif page == "6. Real SHAP XAI":
 
             c1, c2 = st.columns(2)
             with c1:
-                st.markdown(f"### {model_a}")
+                st.markdown(f"### {display_model_name(model_a)}")
                 st.dataframe(safe_format_df(df_a.head(10)), use_container_width=True, hide_index=True)
             with c2:
-                st.markdown(f"### {model_b}")
+                st.markdown(f"### {display_model_name(model_b)}")
                 st.dataframe(safe_format_df(df_b.head(10)), use_container_width=True, hide_index=True)
 
             fig, merged_df = plot_model_compare(
                 df_a,
                 df_b,
-                model_a.replace(" ", "_"),
-                model_b.replace(" ", "_"),
+                display_model_name(model_a).replace(" ", "_"),
+                display_model_name(model_b).replace(" ", "_"),
                 value_col,
-                f"{model_a} vs {model_b} SHAP Feature Importance",
+                f"{display_model_name(model_a)} vs {display_model_name(model_b)} SHAP Feature Importance",
                 top_n=12,
             )
             st.pyplot(fig, use_container_width=True)
@@ -1349,7 +1364,7 @@ elif page == "6. Real SHAP XAI":
             st.markdown("### Difference Table")
             st.dataframe(safe_format_df(merged_df), use_container_width=True, hide_index=True)
 
-            info_box(comparison_text(df_a, df_b, model_a, model_b, value_col), "purple")
+            info_box(comparison_text(df_a, df_b, display_model_name(model_a), display_model_name(model_b), value_col), "purple")
 
     elif shap_mode == "Raw SHAP Summary":
         shap_model = st.selectbox("選擇模型", shap_models, format_func=lambda x: MODEL_NAMES[x])
@@ -1460,7 +1475,7 @@ elif page == "7. Research Findings":
     info_box(
         """
         <b>Finding 1：v2 temporal features 改善多數 one-step 連續預測</b><br>
-        MLP v2 在 speed_next、acceleration_next、dist_tls_next、leader_speed_next、time_loss_next 與 reward 等多數 MAE 指標上較佳，
+        MLP (Temporal) 在 speed_next、acceleration_next、dist_tls_next、leader_speed_next、time_loss_next 與 reward 等多數 MAE 指標上較佳，
         代表 temporal enhanced data 有助於模型描述交通狀態轉移。
         """,
         "green",
@@ -1469,8 +1484,8 @@ elif page == "7. Research Findings":
     info_box(
         """
         <b>Finding 2：LSTM 對特定交通狀態與長期 rollout 更穩定</b><br>
-        LSTM v2 在 tls_color_next 與 waiting_time_next 表現最佳。
-        在 multi-step rollout 中，LSTM v2 避免了 MLP v2 在 50-step 的明顯誤差發散。
+        LSTM (Temporal) 在 tls_color_next 與 waiting_time_next 表現最佳。
+        在 multi-step rollout 中，LSTM (Temporal) 避免了 MLP (Temporal) 在 50-step 的明顯誤差發散。
         """,
         "blue",
     )
@@ -1502,7 +1517,7 @@ elif page == "7. Research Findings":
         "red",
     )
 
-    with st.expander("📌 報告講稿"):
+    with st.expander("結論"):
         st.markdown(
             """
             本研究將智慧交通車速控制問題轉換為 world model prediction task，
@@ -1512,12 +1527,12 @@ elif page == "7. Research Findings":
             Baseline 是 static baseline dataset，而 Temporal 加入 temporal context，
             讓資料保留 sequence 與 episode 資訊。
 
-            在 one-step evaluation 中，MLP v2 在多數連續變數上有較低 MAE，
+            在 one-step evaluation 中，MLP (Temporal) 在多數連續變數上有較低 MAE，
             顯示 temporal enhanced data 對單步預測有幫助。
             但 LSTM 在 tls_color、waiting_time 等狀態判斷上具有優勢。
 
-            在 multi-step rollout 中，MLP v2 在長 horizon 下產生明顯 error accumulation，
-            而 LSTM v2 能維持較穩定的長期預測。
+            在 multi-step rollout 中，MLP (Temporal) 在長 horizon 下產生明顯 error accumulation，
+            而 LSTM (Temporal) 能維持較穩定的長期預測。
             這說明 temporal memory 對 world model 的 long-horizon imagination 非常重要。
 
             XAI 分析使用離線計算的真實 SHAP values。
