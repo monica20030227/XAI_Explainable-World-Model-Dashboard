@@ -435,25 +435,75 @@ def compute_dashboard_metrics(logs):
 
 
 def condition_comparison(logs):
+    """
+    Dashboard 用的保險版條件比較。
+    可以相容舊版 CSV、空 CSV、缺欄位 CSV，避免 pandas groupby agg KeyError。
+    """
     logs = _trial_logs(logs)
-    if logs.empty:
+    if logs is None or logs.empty:
         return pd.DataFrame()
-    return (
-        logs.groupby("condition_zh")
-        .agg(
-            responses=("condition_zh", "count"),
-            reasonableness_mean=("reasonableness_score", "mean"),
-            adoption_intention_mean=("adoption_intention_score", "mean"),
-            trust_mean=("trust_score", "mean"),
-            understanding_mean=("understanding_score", "mean"),
-            confidence_mean=("confidence_score", "mean"),
-            adoption_rate=("decision", lambda x: (x == "Accept").mean() * 100),
-            override_rate=("decision", lambda x: (x == "Override").mean() * 100),
-            decision_time_mean=("decision_time_sec", "mean"),
-            correct_behavior_rate=("is_correct_behavior", lambda x: x.mean() * 100),
-        )
-        .reset_index()
-    )
+
+    logs = logs.copy()
+
+    # 舊版紀錄可能只有 condition，沒有 condition_zh
+    if "condition_zh" not in logs.columns:
+        if "condition" in logs.columns:
+            logs["condition_zh"] = logs["condition"].map({
+                "Without Explanation": "無 AI 提示",
+                "With Explanation": "有 AI 提示",
+                "no_hint": "無 AI 提示",
+                "with_hint": "有 AI 提示",
+            }).fillna(logs["condition"].astype(str))
+        else:
+            logs["condition_zh"] = "未標記條件"
+
+    # 所有 Dashboard 需要的欄位都先補齊
+    required_defaults = {
+        "reasonableness_score": np.nan,
+        "adoption_intention_score": np.nan,
+        "trust_score": np.nan,
+        "understanding_score": np.nan,
+        "confidence_score": np.nan,
+        "decision": "",
+        "decision_time_sec": np.nan,
+        "is_correct_behavior": np.nan,
+    }
+    for col, default in required_defaults.items():
+        if col not in logs.columns:
+            logs[col] = default
+
+    numeric_cols = [
+        "reasonableness_score",
+        "adoption_intention_score",
+        "trust_score",
+        "understanding_score",
+        "confidence_score",
+        "decision_time_sec",
+        "is_correct_behavior",
+    ]
+    for col in numeric_cols:
+        logs[col] = pd.to_numeric(logs[col], errors="coerce")
+
+    logs["decision"] = logs["decision"].fillna("").astype(str)
+    logs["condition_zh"] = logs["condition_zh"].fillna("未標記條件").astype(str)
+
+    rows = []
+    for condition_name, g in logs.groupby("condition_zh", dropna=False):
+        rows.append({
+            "condition_zh": condition_name,
+            "responses": len(g),
+            "reasonableness_mean": g["reasonableness_score"].mean(),
+            "adoption_intention_mean": g["adoption_intention_score"].mean(),
+            "trust_mean": g["trust_score"].mean(),
+            "understanding_mean": g["understanding_score"].mean(),
+            "confidence_mean": g["confidence_score"].mean(),
+            "adoption_rate": (g["decision"] == "Accept").mean() * 100,
+            "override_rate": (g["decision"] == "Override").mean() * 100,
+            "decision_time_mean": g["decision_time_sec"].mean(),
+            "correct_behavior_rate": g["is_correct_behavior"].mean() * 100,
+        })
+
+    return pd.DataFrame(rows)
 
 
 def pair_comparison_summary(logs):
