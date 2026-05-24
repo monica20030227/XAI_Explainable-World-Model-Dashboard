@@ -886,8 +886,17 @@ with st.sidebar:
         index=2,
     )
     st.divider()
-    st.caption("Participant ID 與開始測試已移到 Participant Task 頁面內。")
-    st.caption("受試者只要進入 Participant Task；測試過程中不會出現情境或條件選單。")
+    # 往下推一些空間
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+
+    st.markdown("### 平台連結")
+
+    st.image(
+        "平台連結.png",
+        use_container_width=True
+    )
+
+    st.caption("請掃描 QR Code 進入平台")
 
 render_hero()
 
