@@ -1417,7 +1417,7 @@ elif page == "6. Real SHAP XAI":
             )
 
     elif shap_mode == "XAI Findings":
-        st.markdown("### 可直接放入報告的 XAI 發現")
+        st.markdown("### XAI 發現")
 
         info_box(
             """
