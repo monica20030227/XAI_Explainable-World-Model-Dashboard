@@ -1189,9 +1189,8 @@ elif page == "6. Real SHAP XAI":
 
     info_box(
         """
-        本頁讀取你本地端完成的 SHAP CSV / PKL。
-        MLP 與 LSTM 都使用離線 sample-based approximate SHAP，
-        因此 Streamlit 不會即時計算 SHAP，避免 demo 卡住。
+        本頁讀取本地端完成的 SHAP CSV / PKL。
+        MLP 與 LSTM 都使用離線 sample-based approximate SHAP。
         """,
         "green",
     )
