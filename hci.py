@@ -1,29 +1,30 @@
 # hci_world_model_app.py
 # ============================================================
-# HCI Experiment Platform for Explainable World Model
-# 主題：以 World Model 的可解釋預測介面評估使用者信任、理解與採用行為
+# HCI x Explainable World Model Platform
+# 單頁式受試者測試流程版
 #
 # 執行：
 #   streamlit run hci_world_model_app.py
 #
-# 主要功能：
-# 1. HCI 研究介紹與實驗流程
-# 2. Without Explanation / With Explanation 兩種介面條件
-# 3. 受試者情境任務：接受 AI 建議或 Override
-# 4. 記錄 trust、understanding、confidence、cognitive load、adoption、override
-# 5. 自動輸出 hci_world_model_logs.csv
-# 6. 研究者可在 Dashboard 查看 HCI 指標
+# 功能：
+# 1. Participant ID 在主畫面輸入，不在 sidebar
+# 2. 沒有情境下拉選單，受試者只能依序答題
+# 3. 每個情境流程：
+#    無提示介面 → 交通判斷 3 題
+#    有 AI 提示介面 → 相同交通判斷 3 題
+#    比較問卷 → 進入下一個情境
+# 4. 四個智慧交通情境
+# 5. 自動記錄答案到 hci_world_model_logs.csv
+# 6. Researcher Dashboard 可看統計與下載資料
 # ============================================================
 
 import os
 import time
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import streamlit as st
-import matplotlib.pyplot as plt
 
 
 # ============================================================
@@ -31,11 +32,13 @@ import matplotlib.pyplot as plt
 # ============================================================
 
 st.set_page_config(
-    page_title="HCI × Explainable World Model",
+    page_title="HCI x Explainable World Model Platform",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
+
+LOG_PATH = Path("hci_world_model_logs.csv")
 
 
 # ============================================================
@@ -46,21 +49,21 @@ st.markdown(
     """
     <style>
     .block-container {
-        padding-top: 1.4rem;
+        max-width: 1400px;
+        padding-top: 1.5rem;
         padding-bottom: 3rem;
-        max-width: 1500px;
     }
     h1, h2, h3 {
-        color: #111827;
-        font-weight: 850 !important;
+        color: #172033;
+        font-weight: 900 !important;
     }
     .hero {
         background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%);
         color: white;
-        padding: 2.0rem 2.2rem;
-        border-radius: 24px;
-        margin-bottom: 1.2rem;
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.20);
+        padding: 2.0rem 2.3rem;
+        border-radius: 0 0 24px 24px;
+        margin-bottom: 1.6rem;
+        box-shadow: 0 12px 32px rgba(0,0,0,0.18);
     }
     .hero-title {
         font-size: 2.05rem;
@@ -69,49 +72,106 @@ st.markdown(
     }
     .hero-subtitle {
         font-size: 1.05rem;
-        opacity: 0.96;
+        opacity: 0.95;
         line-height: 1.75;
     }
     .card {
         background: white;
         border-radius: 18px;
-        padding: 1.2rem 1.3rem;
+        padding: 1.3rem 1.45rem;
         box-shadow: 0 6px 18px rgba(0,0,0,0.06);
         border: 1px solid #e5e7eb;
         margin-bottom: 1rem;
     }
-    .box {
-        border-radius: 14px;
-        padding: 1rem 1.15rem;
-        line-height: 1.8;
+    .blue-card {
+        background: #eff6ff;
+        border-left: 6px solid #2563eb;
+        border-radius: 16px;
+        padding: 1.1rem 1.25rem;
         margin-bottom: 1rem;
+        line-height: 1.8;
     }
-    .blue { background: #eff6ff; border-left: 6px solid #2563eb; }
-    .green { background: #ecfdf5; border-left: 6px solid #059669; }
-    .yellow { background: #fffbeb; border-left: 6px solid #d97706; }
-    .red { background: #fef2f2; border-left: 6px solid #dc2626; }
-    .purple { background: #f5f3ff; border-left: 6px solid #7c3aed; }
-    .gray { background: #f9fafb; border-left: 6px solid #6b7280; }
-    .big-number {
-        font-size: 1.8rem;
+    .yellow-card {
+        background: #fffbeb;
+        border-left: 6px solid #d97706;
+        border-radius: 16px;
+        padding: 1.1rem 1.25rem;
+        margin-bottom: 1rem;
+        line-height: 1.8;
+    }
+    .green-card {
+        background: #ecfdf5;
+        border-left: 6px solid #059669;
+        border-radius: 16px;
+        padding: 1.1rem 1.25rem;
+        margin-bottom: 1rem;
+        line-height: 1.8;
+    }
+    .red-card {
+        background: #fef2f2;
+        border-left: 6px solid #dc2626;
+        border-radius: 16px;
+        padding: 1.1rem 1.25rem;
+        margin-bottom: 1rem;
+        line-height: 1.8;
+    }
+    .purple-card {
+        background: #f5f3ff;
+        border-left: 6px solid #7c3aed;
+        border-radius: 16px;
+        padding: 1.1rem 1.25rem;
+        margin-bottom: 1rem;
+        line-height: 1.8;
+    }
+    .section-title {
+        font-size: 1.65rem;
         font-weight: 900;
         color: #111827;
+        margin-top: 0.2rem;
+        margin-bottom: 1rem;
     }
-    .small-label {
+    .task-title {
+        font-size: 1.45rem;
+        font-weight: 900;
+        color: #111827;
+        margin-bottom: 0.5rem;
+    }
+    .condition-pill {
+        display: inline-block;
+        padding: 0.4rem 0.8rem;
+        border-radius: 999px;
+        font-size: 0.9rem;
+        font-weight: 850;
+        color: white;
+        background: #2563eb;
+        margin-bottom: 0.8rem;
+    }
+    .condition-pill.noexp {
+        background: #6b7280;
+    }
+    .condition-pill.exp {
+        background: #7c3aed;
+    }
+    .small-note {
+        color: #6b7280;
+        font-size: 0.92rem;
+        line-height: 1.65;
+    }
+    .metric-box {
+        background: white;
+        border-radius: 16px;
+        padding: 1rem 1.1rem;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .metric-label {
         color: #6b7280;
         font-weight: 700;
-        font-size: 0.92rem;
     }
-    .tag {
-        display: inline-block;
-        padding: 0.24rem 0.65rem;
-        border-radius: 999px;
-        font-size: 0.85rem;
-        font-weight: 750;
-        margin-right: 0.35rem;
-        margin-bottom: 0.35rem;
-        background: #e0f2fe;
-        color: #075985;
+    .metric-value {
+        font-size: 1.65rem;
+        font-weight: 900;
+        color: #111827;
     }
     </style>
     """,
@@ -120,255 +180,241 @@ st.markdown(
 
 
 # ============================================================
-# Constants
+# Scenario Data
 # ============================================================
-
-LOG_PATH = Path("hci_world_model_logs.csv")
-
-CONDITIONS = {
-    "Without Explanation": {
-        "name_zh": "無解釋介面",
-        "description": "只顯示 World Model 的預測結果與建議，不提供 SHAP 或文字原因。",
-    },
-    "With Explanation": {
-        "name_zh": "有解釋介面",
-        "description": "除了預測結果，也顯示關鍵特徵、SHAP 重要性與自然語言解釋。",
-    },
-}
 
 SCENARIOS = [
     {
-        "scenario_id": "S1_red_light_close",
+        "id": "S1",
         "title": "情境 1：紅燈接近，系統建議減速",
-        "traffic_context": "車輛距離號誌路口 38 m，目前號誌為紅燈，車速 42 km/h，前方無明顯阻擋。",
+        "summary": "車輛距離號誌路口 38 m，目前號誌為紅燈，車速 42 km/h，前方無明顯阻擋。",
         "state": {
-            "speed_t": 42,
-            "acceleration_t": 0.3,
-            "dist_tls_t": 38,
+            "speed_t": "42 km/h",
+            "acceleration_t": "0.3 m/s²",
+            "dist_tls_t": "38 m",
             "tls_color_t": "Red",
-            "leader_gap_t": 32,
-            "leader_speed_t": 35,
-            "waiting_time_t": 0,
-            "time_loss_t": 4.6,
-            "vehicle_type": "ICE",
+            "leader_gap_t": "32 m",
+            "leader_speed_t": "35 km/h",
+            "waiting_time_t": "0 sec",
+            "time_loss_t": "4.1 sec",
         },
-        "ai_recommendation": "建議減速至 25 km/h",
+        "recommendation": "建議減速至 25 km/h",
         "prediction": {
-            "speed_next": 31.4,
-            "dist_tls_next": 29.1,
-            "waiting_time_next": 0.6,
-            "time_loss_next": 5.2,
+            "speed_next": "31.4 km/h",
+            "dist_tls_next": "29.1 m",
+            "waiting_time_next": "0.6 sec",
+            "time_loss_next": "5.2 sec",
             "risk_level": "Medium",
         },
         "explanation": [
-            ("dist_tls_t", 0.31, "距離號誌太近，若維持高速可能造成急煞或停等不穩定。"),
-            ("tls_color_t", 0.27, "目前是紅燈，模型預測需要提前降低速度。"),
-            ("speed_t", 0.22, "目前速度偏高，因此影響下一步速度與 time loss。"),
-            ("target_speed", 0.13, "控制目標速度會直接影響下一步狀態預測。"),
+            ("dist_tls_t 距離號誌過近", "紅燈接近時若維持高速，下一步停等與 time loss 可能增加。", 42),
+            ("tls_color_t 為紅燈", "號誌狀態使減速決策更合理。", 31),
+            ("speed_t 目前速度偏高", "目前車速相對接近路口距離偏高，因此模型傾向建議減速。", 18),
         ],
-        "correct_behavior": "Accept",
-        "teaching_note": "合理行為是接受減速建議，因為紅燈距離近且目前速度偏高。",
     },
     {
-        "scenario_id": "S2_leader_gap_short",
+        "id": "S2",
         "title": "情境 2：前車距離過短，系統建議減速",
-        "traffic_context": "車輛距離路口 92 m，號誌為綠燈，但前車距離只有 8 m，前車速度較慢。",
+        "summary": "車輛距離路口 92 m，號誌為綠燈，但前車距離只有 8 m，前車速度較慢。",
         "state": {
-            "speed_t": 38,
-            "acceleration_t": 0.1,
-            "dist_tls_t": 92,
+            "speed_t": "38 km/h",
+            "acceleration_t": "0.1 m/s²",
+            "dist_tls_t": "92 m",
             "tls_color_t": "Green",
-            "leader_gap_t": 8,
-            "leader_speed_t": 18,
-            "waiting_time_t": 0,
-            "time_loss_t": 2.1,
-            "vehicle_type": "HEV",
+            "leader_gap_t": "8 m",
+            "leader_speed_t": "18 km/h",
+            "waiting_time_t": "0 sec",
+            "time_loss_t": "2.4 sec",
         },
-        "ai_recommendation": "建議減速至 22 km/h",
+        "recommendation": "建議減速至 22 km/h",
         "prediction": {
-            "speed_next": 27.2,
-            "dist_tls_next": 84.8,
-            "waiting_time_next": 0.0,
-            "time_loss_next": 2.8,
+            "speed_next": "27.2 km/h",
+            "dist_tls_next": "84.8 m",
+            "waiting_time_next": "0.0 sec",
+            "time_loss_next": "2.8 sec",
             "risk_level": "Medium",
         },
         "explanation": [
-            ("leader_gap_t", 0.34, "前車距離過短，是模型判斷需要減速的主要因素。"),
-            ("leader_speed_t", 0.26, "前車速度較慢，若不減速可能造成跟車風險。"),
-            ("speed_t", 0.18, "目前車速高於前車速度，因此模型預測需要降低速度。"),
-            ("dist_tls_t", 0.10, "距離路口仍有一段距離，號誌因素不是主要原因。"),
+            ("leader_gap_t 前車距離過短", "前車距離是主要安全因素，車距不足時減速較合理。", 46),
+            ("leader_speed_t 前車速度較慢", "前車速度偏低，若不減速可能造成跟車風險。", 29),
+            ("speed_t 目前速度較高", "目前速度與前車距離不匹配，因此模型降低目標速度。", 17),
         ],
-        "correct_behavior": "Accept",
-        "teaching_note": "雖然是綠燈，但前車距離過短，因此合理行為仍是接受減速建議。",
     },
     {
-        "scenario_id": "S3_green_light_far",
+        "id": "S3",
         "title": "情境 3：綠燈且距離充足，系統建議小幅加速",
-        "traffic_context": "車輛距離路口 145 m，號誌為綠燈，前方車距安全，系統建議小幅加速以降低 time loss。",
+        "summary": "車輛距離路口 130 m，號誌為綠燈，前方車距充足，系統預測可順利通過。",
         "state": {
-            "speed_t": 28,
-            "acceleration_t": 0.0,
-            "dist_tls_t": 145,
+            "speed_t": "31 km/h",
+            "acceleration_t": "0.0 m/s²",
+            "dist_tls_t": "130 m",
             "tls_color_t": "Green",
-            "leader_gap_t": 46,
-            "leader_speed_t": 34,
-            "waiting_time_t": 0,
-            "time_loss_t": 3.4,
-            "vehicle_type": "EV",
+            "leader_gap_t": "55 m",
+            "leader_speed_t": "40 km/h",
+            "waiting_time_t": "0 sec",
+            "time_loss_t": "1.5 sec",
         },
-        "ai_recommendation": "建議加速至 35 km/h",
+        "recommendation": "建議小幅加速至 38 km/h",
         "prediction": {
-            "speed_next": 33.1,
-            "dist_tls_next": 136.4,
-            "waiting_time_next": 0.0,
-            "time_loss_next": 2.9,
+            "speed_next": "35.6 km/h",
+            "dist_tls_next": "120.4 m",
+            "waiting_time_next": "0.0 sec",
+            "time_loss_next": "1.2 sec",
             "risk_level": "Low",
         },
         "explanation": [
-            ("tls_color_t", 0.25, "目前為綠燈，模型預測通過路口機會較高。"),
-            ("dist_tls_t", 0.23, "距離路口充足，因此不需要急煞或停等。"),
-            ("leader_gap_t", 0.20, "前方車距安全，支援小幅加速。"),
-            ("time_loss_t", 0.17, "小幅加速可降低 time loss。"),
+            ("tls_color_t 為綠燈", "目前號誌允許通行，系統傾向維持效率。", 37),
+            ("dist_tls_t 距離充足", "距離路口仍有足夠反應空間，小幅加速風險較低。", 28),
+            ("leader_gap_t 前車距離充足", "前方車距較安全，因此採用較積極的速度建議。", 22),
         ],
-        "correct_behavior": "Accept",
-        "teaching_note": "合理行為是接受建議，但仍需注意不能過度加速。",
     },
     {
-        "scenario_id": "S4_prediction_drift",
+        "id": "S4",
         "title": "情境 4：長期預測不穩定，使用者應謹慎判斷",
-        "traffic_context": "World Model 在 50-step rollout 出現較高誤差累積，但系統仍給出明確建議。",
+        "summary": "車輛接近複雜路口，號誌即將變化，前方車流不穩定，World Model 的長期 rollout 不確定性較高。",
         "state": {
-            "speed_t": 36,
-            "acceleration_t": -0.2,
-            "dist_tls_t": 66,
+            "speed_t": "45 km/h",
+            "acceleration_t": "0.4 m/s²",
+            "dist_tls_t": "68 m",
             "tls_color_t": "Yellow",
-            "leader_gap_t": 18,
-            "leader_speed_t": 21,
-            "waiting_time_t": 0,
-            "time_loss_t": 6.8,
-            "vehicle_type": "ICE",
+            "leader_gap_t": "14 m",
+            "leader_speed_t": "28 km/h",
+            "waiting_time_t": "0 sec",
+            "time_loss_t": "6.8 sec",
         },
-        "ai_recommendation": "建議維持 36 km/h",
+        "recommendation": "建議減速至 28 km/h，並保持觀察",
         "prediction": {
-            "speed_next": 35.2,
-            "dist_tls_next": 55.0,
-            "waiting_time_next": 1.4,
-            "time_loss_next": 8.9,
-            "risk_level": "High",
+            "speed_next": "34.5 km/h",
+            "dist_tls_next": "59.3 m",
+            "waiting_time_next": "0.3 sec",
+            "time_loss_next": "8.6 sec",
+            "risk_level": "High uncertainty",
         },
         "explanation": [
-            ("rollout_horizon", 0.36, "長期 rollout 誤差可能累積，預測可靠度下降。"),
-            ("tls_color_t", 0.24, "黃燈代表狀態變化快速，模型判斷不確定性較高。"),
-            ("leader_gap_t", 0.19, "前車距離偏短，維持速度可能有風險。"),
-            ("time_loss_t", 0.12, "time loss 已偏高，但不能只為降低延遲而忽略安全。"),
+            ("tls_color_t 號誌為黃燈", "號誌即將轉換，使下一步狀態較不確定。", 35),
+            ("leader_gap_t 前車距離偏短", "前方車流變化可能影響安全與速度控制。", 27),
+            ("time_loss_t 已偏高", "目前 time loss 累積偏高，長期預測可能出現誤差累積。", 25),
         ],
-        "correct_behavior": "Override",
-        "teaching_note": "此情境中合理行為是 override 或要求更多資訊，因為長期預測不穩定且風險較高。",
     },
 ]
 
-ONE_STEP_DATA = pd.DataFrame(
-    [
-        ["speed_next", "MAE", 0.2660, 0.2991, 0.2331, 0.2985],
-        ["acceleration_next", "MAE", 0.0683, 0.0815, 0.0577, 0.0688],
-        ["dist_tls_next", "MAE", 13.8117, 14.6604, 11.7079, 12.6626],
-        ["tls_color_next", "MAE", 0.1159, 0.0808, 0.0955, 0.0706],
-        ["leader_gap_next", "MAE", 3.6208, 2.8786, 3.1692, 3.0649],
-        ["leader_speed_next", "MAE", 0.5360, 0.5389, 0.4646, 0.4674],
-        ["waiting_time_next", "MAE", 0.0764, 0.0553, 0.0626, 0.0171],
-        ["time_loss_next", "MAE", 2.9015, 3.5633, 2.3804, 3.2993],
-        ["is_stopped_next", "Accuracy", 0.9971, 0.9993, 0.9980, 0.9991],
-        ["reward", "MAE", 0.1248, 0.1284, 0.1204, 0.1233],
-        ["done", "Accuracy", 0.9923, 0.9921, 0.9932, 0.9895],
-    ],
-    columns=["Target", "Metric", "MLP (Baseline)", "LSTM (Baseline)", "MLP (Temporal)", "LSTM (Temporal)"],
-)
+PHASES = ["no_explanation", "with_explanation", "comparison"]
 
-ROLLOUT_SUMMARY = pd.DataFrame(
-    [
-        [10, 0.3270, 0.3293, 56.9968, 25.5172, 7.5647, 3.0765],
-        [20, 0.5750, 0.6540, 123.9111, 56.6645, 14.7849, 5.3105],
-        [50, 72.5759, 0.5935, 7615.2311, 102.0483, 3167.6657, 10.9053],
-    ],
-    columns=[
-        "Horizon",
-        "MLP (Temporal) speed MAE",
-        "LSTM (Temporal) speed MAE",
-        "MLP (Temporal) dist_tls MAE",
-        "LSTM (Temporal) dist_tls MAE",
-        "MLP (Temporal) time_loss MAE",
-        "LSTM (Temporal) time_loss MAE",
-    ],
-)
+TRAFFIC_QUESTIONS = [
+    {
+        "key": "reasonableness",
+        "label": "Q1. 你認為 World Model 的建議在此情境下是合理的嗎？",
+        "options": ["非常不合理", "不太合理", "普通", "合理", "非常合理"],
+    },
+    {
+        "key": "accept_intention",
+        "label": "Q2. 如果你是駕駛，你會採用這個 AI 建議嗎？",
+        "options": ["完全不會", "不太會", "不確定", "會", "非常會"],
+    },
+    {
+        "key": "decision",
+        "label": "Q3. 你的最終操作選擇是什麼？",
+        "options": ["Accept：採用 AI 建議", "Override：我會改用自己的判斷"],
+    },
+]
+
+COMPARISON_QUESTIONS = [
+    {
+        "key": "understanding_compare",
+        "label": "Q1. 哪個介面讓你比較理解 AI 為什麼做出這個建議？",
+        "options": ["無提示介面", "有 AI 提示介面", "兩者差不多"],
+    },
+    {
+        "key": "trust_compare",
+        "label": "Q2. 哪個介面讓你比較信任 AI 的建議？",
+        "options": ["無提示介面", "有 AI 提示介面", "兩者差不多"],
+    },
+    {
+        "key": "helpfulness",
+        "label": "Q3. AI 提示是否幫助你做出交通判斷？",
+        "options": ["完全沒有幫助", "幫助很少", "普通", "有幫助", "非常有幫助"],
+    },
+    {
+        "key": "cognitive_load",
+        "label": "Q4. AI 提示是否讓你覺得資訊太多或造成負擔？",
+        "options": ["完全不會", "不太會", "普通", "會", "非常會"],
+    },
+]
 
 
 # ============================================================
-# Helpers
+# Session State
 # ============================================================
 
-def render_hero():
-    st.markdown(
-        """
-        <div class="hero">
-            <div class="hero-title">🧠 HCI × Explainable World Model Platform</div>
-            <div class="hero-subtitle">
-                以智慧交通 World Model 為核心，評估「有無解釋」如何影響使用者信任、理解、採用與 override 行為。
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+def init_state():
+    defaults = {
+        "started": False,
+        "finished": False,
+        "participant_id": "",
+        "scenario_idx": 0,
+        "phase_idx": 0,
+        "step_start_time": None,
+        "local_records": [],
+    }
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
 
 
-def info_box(text, color="blue"):
-    st.markdown(f'<div class="box {color}">{text}</div>', unsafe_allow_html=True)
+def reset_experiment():
+    st.session_state.started = False
+    st.session_state.finished = False
+    st.session_state.participant_id = ""
+    st.session_state.scenario_idx = 0
+    st.session_state.phase_idx = 0
+    st.session_state.step_start_time = None
+    st.session_state.local_records = []
 
 
-def metric_card(label, value, note=""):
-    st.markdown(
-        f"""
-        <div class="card">
-            <div class="small-label">{label}</div>
-            <div class="big-number">{value}</div>
-            <div style="color:#6b7280; line-height:1.6;">{note}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+def start_experiment(pid: str):
+    st.session_state.started = True
+    st.session_state.finished = False
+    st.session_state.participant_id = pid.strip()
+    st.session_state.scenario_idx = 0
+    st.session_state.phase_idx = 0
+    st.session_state.step_start_time = time.time()
+    st.session_state.local_records = []
 
 
-def show_tags(tags):
-    html = "".join([f'<span class="tag">{tag}</span>' for tag in tags])
-    st.markdown(html, unsafe_allow_html=True)
+def get_current_step():
+    scenario = SCENARIOS[st.session_state.scenario_idx]
+    phase = PHASES[st.session_state.phase_idx]
+    return scenario, phase
 
 
-def init_session():
-    if "participant_id" not in st.session_state:
-        st.session_state.participant_id = ""
-    if "condition" not in st.session_state:
-        st.session_state.condition = "With Explanation"
-    if "scenario_index" not in st.session_state:
-        st.session_state.scenario_index = 0
-    if "task_start_time" not in st.session_state:
-        st.session_state.task_start_time = time.time()
+def total_steps():
+    return len(SCENARIOS) * len(PHASES)
 
 
-def reset_timer():
-    st.session_state.task_start_time = time.time()
+def current_step_number():
+    return st.session_state.scenario_idx * len(PHASES) + st.session_state.phase_idx + 1
 
 
-def get_elapsed_seconds():
-    return round(time.time() - st.session_state.task_start_time, 2)
+def phase_label(phase):
+    if phase == "no_explanation":
+        return "無提示介面"
+    if phase == "with_explanation":
+        return "有 AI 提示介面"
+    return "比較問卷"
 
 
-def append_log(row):
-    df = pd.DataFrame([row])
+# ============================================================
+# Logging
+# ============================================================
+
+def append_log(record: dict):
+    df_new = pd.DataFrame([record])
     if LOG_PATH.exists():
-        old = pd.read_csv(LOG_PATH)
-        out = pd.concat([old, df], ignore_index=True)
+        df_old = pd.read_csv(LOG_PATH)
+        df = pd.concat([df_old, df_new], ignore_index=True)
     else:
-        out = df
-    out.to_csv(LOG_PATH, index=False, encoding="utf-8-sig")
+        df = df_new
+    df.to_csv(LOG_PATH, index=False, encoding="utf-8-sig")
 
 
 def load_logs():
@@ -377,508 +423,419 @@ def load_logs():
     return pd.DataFrame()
 
 
-def plot_feature_importance(explanation):
-    features = [x[0] for x in explanation]
-    values = [x[1] for x in explanation]
-    y = np.arange(len(features))
+# ============================================================
+# Rendering Helpers
+# ============================================================
 
-    fig, ax = plt.subplots(figsize=(8, 4.6))
-    ax.barh(y, values)
-    ax.set_yticks(y)
-    ax.set_yticklabels(features)
-    ax.invert_yaxis()
-    ax.set_xlabel("Relative importance")
-    ax.set_title("Explanation: Key Features", fontsize=14, fontweight="bold")
-    ax.grid(axis="x", alpha=0.25)
-    plt.tight_layout()
-    return fig
-
-
-def plot_rollout():
-    fig, ax = plt.subplots(figsize=(8, 4.8))
-    ax.plot(ROLLOUT_SUMMARY["Horizon"], ROLLOUT_SUMMARY["MLP (Temporal) speed MAE"], marker="o", linewidth=2, label="MLP (Temporal)")
-    ax.plot(ROLLOUT_SUMMARY["Horizon"], ROLLOUT_SUMMARY["LSTM (Temporal) speed MAE"], marker="o", linewidth=2, label="LSTM (Temporal)")
-    ax.set_xlabel("Rollout Horizon")
-    ax.set_ylabel("speed_next MAE")
-    ax.set_title("World Model Long-horizon Stability", fontsize=14, fontweight="bold")
-    ax.grid(alpha=0.25)
-    ax.legend()
-    plt.tight_layout()
-    return fig
+def render_hero():
+    st.markdown(
+        """
+        <div class="hero">
+            <div class="hero-title">🧠 HCI × Explainable World Model Platform</div>
+            <div class="hero-subtitle">
+                單頁式 HCI 受試者測試平台：依序比較「無提示」與「有 AI 提示」對智慧交通判斷、信任與採用意願的影響。
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
-def compute_dashboard_metrics(logs):
-    if logs.empty:
-        return {
-            "n": 0,
-            "adoption_rate": 0,
-            "override_rate": 0,
-            "avg_trust": 0,
-            "avg_understanding": 0,
-            "avg_time": 0,
-            "correct_rate": 0,
-        }
-
-    n = len(logs)
-    adoption_rate = (logs["decision"] == "Accept").mean() * 100
-    override_rate = (logs["decision"] == "Override").mean() * 100
-    avg_trust = logs["trust_score"].mean()
-    avg_understanding = logs["understanding_score"].mean()
-    avg_time = logs["decision_time_sec"].mean()
-
-    if "is_correct_behavior" in logs.columns:
-        correct_rate = logs["is_correct_behavior"].mean() * 100
-    else:
-        correct_rate = 0
-
-    return {
-        "n": n,
-        "adoption_rate": adoption_rate,
-        "override_rate": override_rate,
-        "avg_trust": avg_trust,
-        "avg_understanding": avg_understanding,
-        "avg_time": avg_time,
-        "correct_rate": correct_rate,
-    }
+def render_progress():
+    step = current_step_number()
+    total = total_steps()
+    st.progress(step / total)
+    st.caption(f"目前進度：Step {step} / {total}　｜　Participant ID：{st.session_state.participant_id}")
 
 
-def condition_comparison(logs):
-    if logs.empty:
-        return pd.DataFrame()
-    return (
-        logs.groupby("condition")
-        .agg(
-            responses=("condition", "count"),
-            trust_mean=("trust_score", "mean"),
-            understanding_mean=("understanding_score", "mean"),
-            adoption_rate=("decision", lambda x: (x == "Accept").mean() * 100),
-            override_rate=("decision", lambda x: (x == "Override").mean() * 100),
-            decision_time_mean=("decision_time_sec", "mean"),
-            correct_behavior_rate=("is_correct_behavior", "mean"),
+def render_state_table(scenario):
+    state_df = pd.DataFrame(
+        [{"Feature": k, "Value": v} for k, v in scenario["state"].items()]
+    )
+    st.dataframe(state_df, use_container_width=True, hide_index=True)
+
+
+def render_prediction_table(scenario):
+    pred_df = pd.DataFrame(
+        [{"Prediction Target": k, "Predicted Value": v} for k, v in scenario["prediction"].items()]
+    )
+    st.dataframe(pred_df, use_container_width=True, hide_index=True)
+
+
+def render_explanation(scenario):
+    st.markdown("### 🤖 AI 提示 / Explanation")
+    st.markdown(
+        """
+        <div class="purple-card">
+        此提示顯示 World Model 判斷時較重要的交通因素。百分比為示意化的重要程度，用於協助受試者理解 AI 建議原因。
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    for feature, desc, pct in scenario["explanation"]:
+        st.markdown(f"**{feature}**：{desc}")
+        st.progress(pct / 100)
+        st.caption(f"重要程度：約 {pct}%")
+
+
+def render_scenario_interface(scenario, phase):
+    no_exp = phase == "no_explanation"
+    pill_class = "noexp" if no_exp else "exp"
+    pill_text = "無提示介面：只顯示交通狀態與 AI 建議" if no_exp else "有 AI 提示介面：顯示交通狀態、AI 建議與原因提示"
+
+    st.markdown(f'<span class="condition-pill {pill_class}">{pill_text}</span>', unsafe_allow_html=True)
+    st.markdown(f'<div class="task-title">{scenario["title"]}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="blue-card"><b>情境描述：</b>{scenario["summary"]}</div>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns([1.05, 1])
+    with col1:
+        st.markdown("### 🚦 Traffic State")
+        render_state_table(scenario)
+    with col2:
+        st.markdown("### 🎯 World Model Recommendation")
+        st.markdown(
+            f"""
+            <div class="yellow-card">
+            <b>World Model 建議：</b>{scenario['recommendation']}<br><br>
+            <b>預測下一步狀態：</b>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
-        .reset_index()
-    )
+        render_prediction_table(scenario)
+
+    if phase == "with_explanation":
+        render_explanation(scenario)
+    else:
+        st.markdown(
+            """
+            <div class="red-card">
+            本階段不提供 AI 原因提示。請你只根據交通狀態與 World Model 建議做判斷。
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
-# ============================================================
-# Sidebar
-# ============================================================
+def next_step():
+    if st.session_state.phase_idx < len(PHASES) - 1:
+        st.session_state.phase_idx += 1
+    else:
+        st.session_state.phase_idx = 0
+        st.session_state.scenario_idx += 1
 
-init_session()
-
-with st.sidebar:
-    st.markdown("## 🧠 HCI Platform")
-
-    page = st.radio(
-        "選擇頁面",
-        [
-            "1. Research Overview",
-            "2. Study Design",
-            "3. Participant Task",
-            "4. Researcher Dashboard",
-            "5. World Model Evidence",
-            "6. Report Text",
-        ],
-    )
-
-    st.divider()
-
-    st.session_state.participant_id = st.text_input(
-        "Participant ID",
-        value=st.session_state.participant_id,
-        placeholder="例如 P001",
-    )
-
-    st.session_state.condition = st.selectbox(
-        "Interface Condition",
-        list(CONDITIONS.keys()),
-        index=list(CONDITIONS.keys()).index(st.session_state.condition),
-        format_func=lambda x: CONDITIONS[x]["name_zh"],
-    )
-
-    st.caption("建議實驗設計：同一位受試者可完成兩種條件，或隨機分派其中一種條件。")
-
-render_hero()
+    if st.session_state.scenario_idx >= len(SCENARIOS):
+        st.session_state.finished = True
+        st.session_state.started = False
+    else:
+        st.session_state.step_start_time = time.time()
 
 
 # ============================================================
 # Pages
 # ============================================================
 
-if page == "1. Research Overview":
-    st.markdown("## 研究主題")
+def render_landing_page():
+    st.markdown('<div class="section-title">受試者測試開始</div>', unsafe_allow_html=True)
 
-    info_box(
+    st.markdown(
         """
-        <b>題目：</b>以可解釋 World Model 介面提升智慧交通 AI 決策理解與信任之 HCI 研究。<br><br>
-        本平台不是單純展示模型效能，而是讓使用者在交通情境中實際判斷是否採用 AI 建議，
-        並比較「無解釋」與「有解釋」介面對 trust、understanding、adoption、override 的影響。
+        <div class="green-card">
+        請先輸入 Participant ID，按下「開始測試」後，系統會自動依序顯示四個智慧交通情境。<br>
+        每個情境會先看到「無提示介面」，再看到「有 AI 提示介面」，最後回答該情境的比較問卷。<br>
+        測試過程中不需要也不能自行選擇情境，請依照畫面順序完成。
+        </div>
         """,
-        "blue",
+        unsafe_allow_html=True,
     )
 
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        metric_card("AI Core", "World Model", "預測 sₜ + aₜ → sₜ₊₁")
-    with c2:
-        metric_card("HCI Manipulation", "With / Without XAI", "比較有無解釋介面")
-    with c3:
-        metric_card("Behavior Metrics", "Adoption / Override", "觀察是否接受 AI 建議")
-    with c4:
-        metric_card("Attitude Metrics", "Trust / Understanding", "使用 Likert 量表")
-
-    st.markdown("### 研究問題")
-    rq_df = pd.DataFrame(
-        [
-            ["RQ1", "World Model explanation 是否提升使用者對 AI 建議的理解？"],
-            ["RQ2", "World Model explanation 是否提升使用者信任？"],
-            ["RQ3", "Explanation 是否降低不必要的 override，並改善 trust calibration？"],
-            ["RQ4", "當模型長期 rollout 不穩定時，解釋是否能幫助使用者辨識風險？"],
-        ],
-        columns=["Research Question", "Description"],
-    )
-    st.dataframe(rq_df, use_container_width=True, hide_index=True)
-
-    st.markdown("### 平台角色")
-    show_tags([
-        "HCI Experiment Platform",
-        "Explainable World Model",
-        "Smart Traffic Decision Support",
-        "Trust Calibration",
-        "Human-AI Interaction",
-        "Override Behavior",
-    ])
-
-
-elif page == "2. Study Design":
-    st.markdown("## HCI 實驗設計")
-
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns([1, 1])
     with col1:
-        info_box(
-            """
-            <b>Condition A：Without Explanation</b><br>
-            - 顯示交通狀態<br>
-            - 顯示 AI 建議<br>
-            - 顯示 World Model 預測結果<br>
-            - 不顯示 SHAP 或原因說明
-            """,
-            "gray",
-        )
-
+        pid = st.text_input("Participant ID", placeholder="例如 P001 或學號", key="pid_input")
     with col2:
-        info_box(
-            """
-            <b>Condition B：With Explanation</b><br>
-            - 顯示交通狀態<br>
-            - 顯示 AI 建議<br>
-            - 顯示 World Model 預測結果<br>
-            - 顯示關鍵特徵、SHAP-like importance 與文字解釋
-            """,
-            "green",
-        )
+        st.markdown("<br>", unsafe_allow_html=True)
+        start_clicked = st.button("開始測試", type="primary", use_container_width=True)
 
-    st.markdown("### 實驗流程")
+    if start_clicked:
+        if not pid.strip():
+            st.error("請先輸入 Participant ID，才可以開始測試。")
+        else:
+            start_experiment(pid)
+            st.rerun()
+
+    st.markdown("### 測試流程")
     flow_df = pd.DataFrame(
         [
-            ["Step 1", "受試者輸入 Participant ID，閱讀任務說明"],
-            ["Step 2", "系統呈現交通情境與 AI 建議"],
-            ["Step 3", "受試者選擇 Accept 或 Override"],
-            ["Step 4", "填寫 trust、understanding、confidence、cognitive load"],
-            ["Step 5", "系統記錄行為與問卷結果至 CSV"],
-            ["Step 6", "研究者比較 With / Without Explanation 的差異"],
+            ["1", "情境 1 無提示", "回答 3 題交通判斷"],
+            ["2", "情境 1 有 AI 提示", "回答相同 3 題交通判斷"],
+            ["3", "情境 1 比較問卷", "比較有無提示差異"],
+            ["4", "情境 2～4", "重複相同流程"],
+            ["5", "完成測試", "系統儲存作答資料"],
         ],
-        columns=["Step", "Description"],
+        columns=["Step", "階段", "內容"],
     )
     st.dataframe(flow_df, use_container_width=True, hide_index=True)
 
-    st.markdown("### 主要變數")
-    variable_df = pd.DataFrame(
-        [
-            ["Independent Variable", "Interface condition", "Without Explanation vs With Explanation"],
-            ["Behavior DV", "Adoption", "是否接受 AI 建議"],
-            ["Behavior DV", "Override", "是否拒絕 AI 建議"],
-            ["Attitude DV", "Trust", "我信任這個 AI 建議"],
-            ["Attitude DV", "Understanding", "我理解 AI 為什麼做出這個建議"],
-            ["Process Metric", "Decision time", "做出決策花費秒數"],
-            ["Risk Metric", "Correct behavior", "在高風險情境中是否做出合理採用或 override"],
-        ],
-        columns=["Type", "Variable", "Operational Definition"],
-    )
-    st.dataframe(variable_df, use_container_width=True, hide_index=True)
 
-
-elif page == "3. Participant Task":
-    st.markdown("## 受試者任務")
-
-    if not st.session_state.participant_id.strip():
-        st.warning("請先在左側輸入 Participant ID，例如 P001。")
-
-    condition = st.session_state.condition
-    st.info(f"目前介面條件：{CONDITIONS[condition]['name_zh']} — {CONDITIONS[condition]['description']}")
-
-    scenario_titles = [s["title"] for s in SCENARIOS]
-    selected_title = st.selectbox(
-        "選擇任務情境",
-        scenario_titles,
-        index=st.session_state.scenario_index,
-        on_change=reset_timer,
-    )
-    scenario = SCENARIOS[scenario_titles.index(selected_title)]
-    st.session_state.scenario_index = scenario_titles.index(selected_title)
-
-    col_state, col_ai = st.columns([1, 1])
-
-    with col_state:
-        st.markdown("### 🚦 Traffic State")
-        info_box(f"<b>{scenario['title']}</b><br>{scenario['traffic_context']}", "blue")
-
-        state_df = pd.DataFrame(
-            [{"Feature": k, "Value": v} for k, v in scenario["state"].items()]
-        )
-        st.dataframe(state_df, use_container_width=True, hide_index=True)
-
-    with col_ai:
-        st.markdown("### 🤖 AI Recommendation")
-        info_box(
-            f"""
-            <b>World Model 建議：</b>{scenario['ai_recommendation']}<br><br>
-            <b>預測下一步狀態：</b><br>
-            - speed_next：{scenario['prediction']['speed_next']} km/h<br>
-            - dist_tls_next：{scenario['prediction']['dist_tls_next']} m<br>
-            - waiting_time_next：{scenario['prediction']['waiting_time_next']} sec<br>
-            - time_loss_next：{scenario['prediction']['time_loss_next']} sec<br>
-            - risk_level：{scenario['prediction']['risk_level']}
-            """,
-            "yellow" if scenario["prediction"]["risk_level"] != "High" else "red",
-        )
-
-    if condition == "With Explanation":
-        st.markdown("### 🔍 Explanation Panel")
-
-        col_chart, col_text = st.columns([1, 1])
-        with col_chart:
-            st.pyplot(plot_feature_importance(scenario["explanation"]), use_container_width=True)
-
-        with col_text:
-            for feature, value, reason in scenario["explanation"]:
-                info_box(
-                    f"<b>{feature}</b>（importance = {value:.2f}）<br>{reason}",
-                    "green",
-                )
-
-            info_box(
-                """
-                <b>HCI 設計目的：</b><br>
-                Explanation panel 不是要讓使用者盲目信任 AI，
-                而是幫助使用者判斷 AI 是否依賴合理交通因素，進而校準信任。
-                """,
-                "purple",
+def render_traffic_questions(scenario, phase):
+    form_key = f"form_{scenario['id']}_{phase}_{current_step_number()}"
+    with st.form(form_key):
+        st.markdown("### 請回答以下 3 題交通判斷題")
+        answers = {}
+        for q in TRAFFIC_QUESTIONS:
+            answers[q["key"]] = st.radio(
+                q["label"],
+                q["options"],
+                index=None,
+                key=f"{form_key}_{q['key']}",
             )
+
+        override_speed = ""
+        if answers.get("decision") == "Override：我會改用自己的判斷":
+            override_speed = st.text_input("如果你選擇 Override，你會建議改成多少速度或如何操作？", placeholder="例如：降到 18 km/h / 維持 30 km/h / 先觀察")
+
+        submitted = st.form_submit_button("提交並進入下一步", type="primary", use_container_width=True)
+
+    if submitted:
+        missing = [q["label"] for q in TRAFFIC_QUESTIONS if answers.get(q["key"]) is None]
+        if missing:
+            st.error("請完成所有題目後再送出。")
+            return
+
+        response_time = round(time.time() - st.session_state.step_start_time, 3) if st.session_state.step_start_time else None
+        record = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "participant_id": st.session_state.participant_id,
+            "scenario_id": scenario["id"],
+            "scenario_title": scenario["title"],
+            "phase": phase,
+            "phase_label": phase_label(phase),
+            "recommendation": scenario["recommendation"],
+            "reasonableness": answers["reasonableness"],
+            "accept_intention": answers["accept_intention"],
+            "decision": answers["decision"],
+            "override_speed_or_action": override_speed,
+            "understanding_compare": "",
+            "trust_compare": "",
+            "helpfulness": "",
+            "cognitive_load": "",
+            "response_time_sec": response_time,
+        }
+        append_log(record)
+        st.session_state.local_records.append(record)
+        next_step()
+        st.rerun()
+
+
+def render_comparison_questions(scenario):
+    st.markdown(f'<div class="task-title">{scenario["title"]}：有無提示比較問卷</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="green-card">
+        你剛剛已經看過同一個交通情境的「無提示介面」與「有 AI 提示介面」。
+        請根據剛才的體驗回答以下問題。
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    form_key = f"comparison_{scenario['id']}_{current_step_number()}"
+    with st.form(form_key):
+        answers = {}
+        for q in COMPARISON_QUESTIONS:
+            answers[q["key"]] = st.radio(
+                q["label"],
+                q["options"],
+                index=None,
+                key=f"{form_key}_{q['key']}",
+            )
+        comment = st.text_area("補充說明：你覺得 AI 提示哪裡有幫助或哪裡容易造成混淆？", placeholder="可不填")
+        submitted = st.form_submit_button("提交並進入下一個情境", type="primary", use_container_width=True)
+
+    if submitted:
+        missing = [q["label"] for q in COMPARISON_QUESTIONS if answers.get(q["key"]) is None]
+        if missing:
+            st.error("請完成所有題目後再送出。")
+            return
+
+        response_time = round(time.time() - st.session_state.step_start_time, 3) if st.session_state.step_start_time else None
+        record = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "participant_id": st.session_state.participant_id,
+            "scenario_id": scenario["id"],
+            "scenario_title": scenario["title"],
+            "phase": "comparison",
+            "phase_label": "比較問卷",
+            "recommendation": scenario["recommendation"],
+            "reasonableness": "",
+            "accept_intention": "",
+            "decision": "",
+            "override_speed_or_action": "",
+            "understanding_compare": answers["understanding_compare"],
+            "trust_compare": answers["trust_compare"],
+            "helpfulness": answers["helpfulness"],
+            "cognitive_load": answers["cognitive_load"],
+            "comment": comment,
+            "response_time_sec": response_time,
+        }
+        append_log(record)
+        st.session_state.local_records.append(record)
+        next_step()
+        st.rerun()
+
+
+def render_task_page():
+    render_progress()
+    scenario, phase = get_current_step()
+
+    st.markdown('<div class="section-title">受試者任務</div>', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div class="blue-card">
+        目前階段：<b>{scenario['id']}｜{phase_label(phase)}</b><br>
+        請依序完成本頁題目。系統會自動帶你進入下一步，不需要自行選擇情境。
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if phase in ["no_explanation", "with_explanation"]:
+        render_scenario_interface(scenario, phase)
+        render_traffic_questions(scenario, phase)
     else:
-        st.markdown("### 🔒 Explanation Hidden")
-        info_box(
-            """
-            此條件刻意不顯示解釋資訊。受試者只能根據交通狀態、AI 建議與預測結果做判斷。
-            """,
-            "gray",
-        )
+        render_comparison_questions(scenario)
 
-    st.markdown("### ✅ Decision and Questionnaire")
 
-    col_decision, col_scale = st.columns([0.8, 1.2])
+def render_finished_page():
+    st.markdown('<div class="section-title">測試完成</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="green-card">
+        感謝你完成本次 HCI × Explainable World Model 使用者測試。你的作答資料已儲存。
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if st.session_state.local_records:
+        df = pd.DataFrame(st.session_state.local_records)
+        st.markdown("### 本次作答摘要")
+        st.dataframe(df, use_container_width=True, hide_index=True)
 
-    with col_decision:
-        decision = st.radio(
-            "你會如何處理 AI 建議？",
-            ["Accept", "Override"],
-            format_func=lambda x: "接受 AI 建議" if x == "Accept" else "Override / 不接受 AI 建議",
-        )
+    if st.button("重新開始新的受試者測試", type="primary"):
+        reset_experiment()
+        st.rerun()
 
-        reason = st.text_area(
-            "請簡短說明原因",
-            placeholder="例如：因為紅燈距離近，所以我會接受減速建議。",
-        )
 
-    with col_scale:
-        trust_score = st.slider("Trust：我信任這個 AI 建議", 1, 5, 3)
-        understanding_score = st.slider("Understanding：我理解 AI 為什麼做出這個建議", 1, 5, 3)
-        confidence_score = st.slider("Decision confidence：我對自己的判斷有信心", 1, 5, 3)
-        cognitive_load = st.slider("Cognitive load：我覺得判斷這個畫面很費力", 1, 5, 3)
+def render_researcher_dashboard():
+    st.markdown('<div class="section-title">Researcher Dashboard</div>', unsafe_allow_html=True)
+    df = load_logs()
+    if df.empty:
+        st.info("目前尚無作答資料。")
+        return
 
-    elapsed = get_elapsed_seconds()
-    st.caption(f"目前決策時間：約 {elapsed} 秒")
-
-    if st.button("送出此情境結果", type="primary", use_container_width=True):
-        if not st.session_state.participant_id.strip():
-            st.error("請先輸入 Participant ID。")
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric("總紀錄數", len(df))
+    with c2:
+        st.metric("受試者數", df["participant_id"].nunique() if "participant_id" in df else 0)
+    with c3:
+        st.metric("情境數", df["scenario_id"].nunique() if "scenario_id" in df else 0)
+    with c4:
+        traffic_df = df[df["phase"].isin(["no_explanation", "with_explanation"])]
+        if not traffic_df.empty:
+            accept_rate = (traffic_df["decision"] == "Accept：採用 AI 建議").mean() * 100
+            st.metric("整體 Accept Rate", f"{accept_rate:.1f}%")
         else:
-            is_correct = int(decision == scenario["correct_behavior"])
+            st.metric("整體 Accept Rate", "N/A")
 
-            row = {
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "participant_id": st.session_state.participant_id.strip(),
-                "condition": condition,
-                "condition_zh": CONDITIONS[condition]["name_zh"],
-                "scenario_id": scenario["scenario_id"],
-                "scenario_title": scenario["title"],
-                "ai_recommendation": scenario["ai_recommendation"],
-                "risk_level": scenario["prediction"]["risk_level"],
-                "decision": decision,
-                "correct_behavior": scenario["correct_behavior"],
-                "is_correct_behavior": is_correct,
-                "trust_score": trust_score,
-                "understanding_score": understanding_score,
-                "confidence_score": confidence_score,
-                "cognitive_load": cognitive_load,
-                "decision_time_sec": elapsed,
-                "reason": reason,
-            }
+    st.markdown("### 原始資料")
+    st.dataframe(df, use_container_width=True, hide_index=True)
 
-            append_log(row)
+    csv = df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+    st.download_button(
+        "下載 CSV",
+        data=csv,
+        file_name="hci_world_model_logs.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
 
-            if is_correct:
-                st.success("已儲存。本情境中的行為判斷符合預期合理行為。")
-            else:
-                st.warning("已儲存。本情境中的行為判斷與預期合理行為不同，可作為 HCI 討論資料。")
+    st.markdown("### 有無提示比較")
+    traffic_df = df[df["phase"].isin(["no_explanation", "with_explanation"])].copy()
+    if not traffic_df.empty:
+        summary = traffic_df.groupby(["phase_label", "scenario_id"]).agg(
+            records=("participant_id", "count"),
+            avg_response_time=("response_time_sec", "mean"),
+        ).reset_index()
+        st.dataframe(summary, use_container_width=True, hide_index=True)
 
-            info_box(f"<b>研究者註解：</b>{scenario['teaching_note']}", "blue")
-            reset_timer()
+        accept_summary = traffic_df.copy()
+        accept_summary["accept"] = accept_summary["decision"].eq("Accept：採用 AI 建議")
+        accept_rate = accept_summary.groupby(["phase_label", "scenario_id"])["accept"].mean().reset_index()
+        accept_rate["accept_rate_percent"] = accept_rate["accept"] * 100
+        st.dataframe(accept_rate[["phase_label", "scenario_id", "accept_rate_percent"]], use_container_width=True, hide_index=True)
 
-    col_prev, col_next = st.columns(2)
-    with col_prev:
-        if st.button("上一個情境", use_container_width=True):
-            st.session_state.scenario_index = max(0, st.session_state.scenario_index - 1)
-            reset_timer()
-            st.rerun()
-    with col_next:
-        if st.button("下一個情境", use_container_width=True):
-            st.session_state.scenario_index = min(len(SCENARIOS) - 1, st.session_state.scenario_index + 1)
-            reset_timer()
-            st.rerun()
+    comparison_df = df[df["phase"] == "comparison"].copy()
+    if not comparison_df.empty:
+        st.markdown("### 比較問卷結果")
+        for col in ["understanding_compare", "trust_compare", "helpfulness", "cognitive_load"]:
+            if col in comparison_df.columns:
+                st.markdown(f"#### {col}")
+                st.dataframe(comparison_df[col].value_counts().reset_index().rename(columns={"index": "answer", col: "count"}), use_container_width=True, hide_index=True)
 
 
-elif page == "4. Researcher Dashboard":
-    st.markdown("## 研究者 Dashboard")
+def render_report_text():
+    st.markdown('<div class="section-title">可放進報告的研究設計文字</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        ### HCI 實驗設計說明
 
-    logs = load_logs()
+        本研究以智慧交通 World Model 為核心，設計一個單頁式 HCI 使用者測試平台，
+        目的在於評估「AI 解釋提示」是否能影響使用者對智慧交通決策建議的理解、信任與採用意願。
 
-    if logs.empty:
-        st.warning("目前尚未有任何受試者資料。請先到 Participant Task 送出至少一筆紀錄。")
+        實驗採用 within-subject design。每位受試者依序完成四個智慧交通情境，
+        每個情境包含兩種介面條件：無提示介面與有 AI 提示介面。
+        無提示介面僅顯示交通狀態與 World Model 建議；有 AI 提示介面則額外呈現模型判斷依據，
+        例如號誌距離、號誌顏色、前車距離與目前車速等重要因素。
+
+        在每個介面條件下，受試者需回答三個交通判斷題：
+        第一，AI 建議是否合理；第二，是否願意採用 AI 建議；第三，最終會接受 AI 建議或選擇 override。
+        完成同一情境的兩種介面後，受試者再回答比較問卷，用以衡量 AI 提示是否提升理解、信任與決策幫助，
+        以及是否造成資訊負擔。
+
+        本研究記錄的 HCI 指標包含：reasonableness、accept intention、accept / override decision、
+        response time、perceived understanding、perceived trust、explanation helpfulness 與 cognitive load。
+        透過比較有無 AI 提示條件下的回答差異，可分析 explanation 是否真的改善使用者對 World Model 的理解與採用行為。
+        """
+    )
+
+
+# ============================================================
+# Main App
+# ============================================================
+
+init_state()
+render_hero()
+
+# sidebar 只保留研究者功能，不放 participant id / condition / 情境選單
+with st.sidebar:
+    st.markdown("## 🧠 HCI Platform")
+    mode = st.radio(
+        "頁面",
+        ["受試者測試", "Researcher Dashboard", "Report Text"],
+        index=0,
+    )
+    st.divider()
+    st.caption("受試者測試頁不提供情境選單，系統會自動依序進行。")
+
+if mode == "受試者測試":
+    if st.session_state.finished:
+        render_finished_page()
+    elif st.session_state.started:
+        render_task_page()
     else:
-        metrics = compute_dashboard_metrics(logs)
-
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            metric_card("Responses", int(metrics["n"]), "總作答筆數")
-        with c2:
-            metric_card("Adoption Rate", f"{metrics['adoption_rate']:.1f}%", "接受 AI 建議比例")
-        with c3:
-            metric_card("Avg Trust", f"{metrics['avg_trust']:.2f}/5", "平均信任分數")
-        with c4:
-            metric_card("Avg Understanding", f"{metrics['avg_understanding']:.2f}/5", "平均理解分數")
-
-        c5, c6, c7, c8 = st.columns(4)
-        with c5:
-            metric_card("Override Rate", f"{metrics['override_rate']:.1f}%", "拒絕 AI 建議比例")
-        with c6:
-            metric_card("Decision Time", f"{metrics['avg_time']:.1f}s", "平均決策秒數")
-        with c7:
-            metric_card("Correct Behavior", f"{metrics['correct_rate']:.1f}%", "是否做出合理採用 / override")
-        with c8:
-            metric_card("Participants", logs["participant_id"].nunique(), "不重複受試者數")
-
-        st.markdown("### Condition Comparison")
-        comp = condition_comparison(logs)
-        if not comp.empty:
-            comp["correct_behavior_rate"] = comp["correct_behavior_rate"] * 100
-            st.dataframe(comp, use_container_width=True, hide_index=True)
-
-        st.markdown("### Raw Logs")
-        st.dataframe(logs, use_container_width=True, hide_index=True)
-
-        csv = logs.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
-        st.download_button(
-            "下載 HCI 實驗資料 CSV",
-            data=csv,
-            file_name="hci_world_model_logs.csv",
-            mime="text/csv",
-            use_container_width=True,
-        )
-
-
-elif page == "5. World Model Evidence":
-    st.markdown("## World Model Evidence")
-
-    info_box(
-        """
-        這一頁用來支撐你的 HCI 平台不是假介面，而是延續原本 World Model 研究。
-        可以在報告中說明：HCI 介面中的 AI 建議與解釋，來自 World Model 預測、rollout 穩定性與 SHAP 解釋概念。
-        """,
-        "blue",
-    )
-
-    st.markdown("### One-step Evaluation")
-    st.dataframe(ONE_STEP_DATA, use_container_width=True, hide_index=True)
-
-    st.markdown("### Multi-step Rollout Evidence")
-    st.dataframe(ROLLOUT_SUMMARY, use_container_width=True, hide_index=True)
-
-    st.pyplot(plot_rollout(), use_container_width=True)
-
-    info_box(
-        """
-        <b>可放入報告的重點：</b><br>
-        - MLP (Temporal) 在 one-step prediction 上表現較佳。<br>
-        - LSTM (Temporal) 在 long-horizon rollout 上較穩定。<br>
-        - 因此 HCI 平台中特別設計「長期預測不穩定」情境，觀察 explanation 是否能幫助使用者避免過度信任。
-        """,
-        "green",
-    )
-
-
-elif page == "6. Report Text":
-    st.markdown("## 可直接放進 HCI 期末報告的文字")
-
-    st.markdown("### 題目")
-    st.code("以可解釋 World Model 介面提升智慧交通 AI 決策理解與信任之 HCI 研究", language="text")
-
-    st.markdown("### 內容介紹")
-    st.text_area(
-        "內容介紹",
-        value=(
-            "本研究延續智慧交通車速控制中的 World Model 主題，設計一套 HCI 實驗平台，"
-            "探討可解釋介面是否能提升使用者對 AI 決策建議的理解、信任與採用判斷。"
-            "World Model 的任務是根據目前交通狀態與控制動作預測下一步交通狀態，"
-            "例如下一步速度、距離號誌、等待時間與 time loss。"
-            "然而，在真實人機互動情境中，使用者不只需要知道 AI 建議什麼，"
-            "也需要理解 AI 為什麼做出該建議，並在模型可能不穩定或高風險情境中保留 override 能力。"
-        ),
-        height=160,
-    )
-
-    st.markdown("### 研究方法")
-    st.text_area(
-        "研究方法",
-        value=(
-            "本研究採用 within-subject 或 between-subject 的介面比較設計，"
-            "比較 Without Explanation 與 With Explanation 兩種條件。"
-            "Without Explanation 只顯示交通狀態、AI 建議與預測結果；"
-            "With Explanation 則額外顯示關鍵特徵重要性與自然語言解釋。"
-            "受試者在多個交通情境中判斷是否接受 AI 建議或進行 override，"
-            "並填寫 trust、understanding、decision confidence 與 cognitive load 量表。"
-        ),
-        height=160,
-    )
-
-    st.markdown("### 預期結果")
-    st.text_area(
-        "預期結果",
-        value=(
-            "預期 With Explanation 介面能提升使用者對 AI 建議的理解程度與信任校準能力，"
-            "並降低不必要的 override。另一方面，解釋資訊也可能增加認知負荷與決策時間。"
-            "在模型長期 rollout 不穩定或高風險情境中，理想的解釋介面不應只是提高信任，"
-            "而是幫助使用者辨識風險並做出適當 override。"
-        ),
-        height=150,
-    )
+        render_landing_page()
+elif mode == "Researcher Dashboard":
+    render_researcher_dashboard()
+else:
+    render_report_text()
