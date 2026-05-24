@@ -1048,7 +1048,7 @@ elif page == "3. One-step Evaluation":
 
 
 elif page == "4. Multi-step Rollout":
-    st.markdown('<div class="section-title">Multi-step Rollout： MLP (Temporal) vs MLP (Temporal)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Multi-step Rollout： MLP (Temporal) vs LSTM (Temporal)</div>', unsafe_allow_html=True)
 
     info_box(
         """
@@ -1062,9 +1062,9 @@ elif page == "4. Multi-step Rollout":
     with c1:
         metric_card("Rollout Horizons", "10 / 20 / 50", "短期、中期、長期預測")
     with c2:
-        metric_card("MLP v2 50-step speed MAE", f"{MLP_V2_ROLLOUT.loc[2, 'speed_next_mae']:.4f}", "長期 rollout 明顯發散")
+        metric_card("MLP(Temoiral) 50-step speed MAE", f"{MLP_V2_ROLLOUT.loc[2, 'speed_next_mae']:.4f}", "長期 rollout 明顯發散")
     with c3:
-        metric_card("LSTM v2 50-step speed MAE", f"{LSTM_V2_ROLLOUT.loc[2, 'speed_next_mae']:.4f}", "長期穩定性較佳")
+        metric_card("LSTM(Temoiral) 50-step speed MAE", f"{LSTM_V2_ROLLOUT.loc[2, 'speed_next_mae']:.4f}", "長期穩定性較佳")
 
     compare_df = pd.DataFrame({
         "Horizon": MLP_V2_ROLLOUT["Horizon"],
