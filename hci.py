@@ -886,9 +886,6 @@ with st.sidebar:
         index=2,
     )
     st.divider()
-    # 往下推一些空間
-    st.markdown("<br>", unsafe_allow_html=True)
-
     st.markdown("### 🧠 平台連結")
 
     st.image(
