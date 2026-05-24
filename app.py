@@ -1473,7 +1473,7 @@ elif page == "7. Research Findings":
 
     info_box(
         """
-        <b>Finding 1：v2 temporal features 改善多數 one-step 連續預測</b><br>
+        <b>Finding 1：temporal features 改善多數 one-step 連續預測</b><br>
         MLP (Temporal) 在 speed_next、acceleration_next、dist_tls_next、leader_speed_next、time_loss_next 與 reward 等多數 MAE 指標上較佳，
         代表 temporal enhanced data 有助於模型描述交通狀態轉移。
         """,
