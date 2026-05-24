@@ -974,11 +974,11 @@ elif page == "2. Dataset Design":
     feature_df = pd.DataFrame(
         [
             ["Metadata", "vehicle_type, source_policy", "Baseline / Temporal 共用"],
-            ["Current State", "speed_t, acceleration_t, dist_tls_t, tls_color_t, leader_gap_t, leader_speed_t, waiting_time_t, time_loss_t, is_stopped_t", "v1 / v2 共用"],
+            ["Current State", "speed_t, acceleration_t, dist_tls_t, tls_color_t, leader_gap_t, leader_speed_t, waiting_time_t, time_loss_t, is_stopped_t", "Baseline / Temporal 共用"],
             ["Action / Control", "action, target_speed", "Baseline / Temporal 共用"],
             ["Learning Signal", "reward, done", "Baseline / Temporal 共用"],
-            ["Prediction Targets", "speed_next, acceleration_next, dist_tls_next, tls_color_next, leader_gap_next, leader_speed_next, waiting_time_next, time_loss_next, is_stopped_next, reward, done", "v1 / v2 共用"],
-            ["Temporal Index", "sequence_id, episode, step", "v2 新增"],
+            ["Prediction Targets", "speed_next, acceleration_next, dist_tls_next, tls_color_next, leader_gap_next, leader_speed_next, waiting_time_next, time_loss_next, is_stopped_next, reward, done", "Baseline / Temporal 共用"],
+            ["Temporal Index", "sequence_id, episode, step", "Temporal 新增"],
         ],
         columns=["欄位類型", "欄位名稱", "版本"],
     )
@@ -1048,7 +1048,7 @@ elif page == "3. One-step Evaluation":
 
 
 elif page == "4. Multi-step Rollout":
-    st.markdown('<div class="section-title">Multi-step Rollout：v2 MLP vs v2 LSTM</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Multi-step Rollout： MLP (Temporal) vs MLP (Temporal)</div>', unsafe_allow_html=True)
 
     info_box(
         """
@@ -1098,8 +1098,8 @@ elif page == "4. Multi-step Rollout":
     info_box(
         """
         <b>核心發現：</b><br>
-        在 multi-step rollout 中，MLP v2 於 50-step 發生明顯 error accumulation，
-        而 LSTM v2 能維持較穩定的動態預測。這表示 temporal memory 對 world model 的長期 imagination 很重要。
+        在 multi-step rollout 中，MLP (Temporal) 於 50-step 發生明顯 error accumulation，
+        而 LSTM (Temporal) 能維持較穩定的動態預測。這表示 temporal memory 對 world model 的長期 imagination 很重要。
         """,
         "red",
     )
