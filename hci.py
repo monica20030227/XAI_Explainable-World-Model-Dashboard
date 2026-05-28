@@ -12,6 +12,7 @@
 #   streamlit run hci_world_model_app_v2.py
 # ============================================================
 
+import os
 import hashlib
 import time
 from pathlib import Path
