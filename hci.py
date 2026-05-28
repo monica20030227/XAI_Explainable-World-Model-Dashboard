@@ -355,10 +355,31 @@ def append_log(row):
 
 
 def load_logs():
-    if LOG_PATH.exists():
-        return pd.read_csv(LOG_PATH)
-    return pd.DataFrame()
+    if not os.path.exists(LOG_PATH):
+        return pd.DataFrame()
 
+    encodings = ["utf-8-sig", "utf-8", "cp950", "big5", "big5hkscs", "latin1"]
+
+    for enc in encodings:
+        try:
+            df = pd.read_csv(LOG_PATH, encoding=enc)
+            
+            # 成功讀到後，統一轉存成 utf-8-sig，避免下次再壞
+            df.to_csv(LOG_PATH, index=False, encoding="utf-8-sig")
+            return df
+
+        except UnicodeDecodeError:
+            continue
+
+        except pd.errors.EmptyDataError:
+            return pd.DataFrame()
+
+    # 最後保底：忽略壞掉字元，不刪資料
+    return pd.read_csv(
+        LOG_PATH,
+        encoding="utf-8",
+        encoding_errors="ignore"
+    )
 
 def plot_feature_importance(explanation):
     features = [x[0] for x in explanation]
